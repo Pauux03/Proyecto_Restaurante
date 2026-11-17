@@ -53,3 +53,13 @@ export function photoFor(photos, id) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return photos[h % photos.length]
 }
+
+export function photosFor(photos, id, count = 8) {
+  if (!photos.length) return []
+  const s = String(id)
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  const start = h % photos.length
+  const n = Math.min(count, photos.length)
+  return Array.from({ length: n }, (_, i) => photos[(start + i) % photos.length])
+}

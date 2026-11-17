@@ -83,6 +83,7 @@ export default function RestaurantDetail({
   onBack,
   onReserve,
   photo,
+  gallery = [],
 }) {
   const [details, setDetails] = useState(null)
   const [error, setError] = useState('')
@@ -175,8 +176,8 @@ export default function RestaurantDetail({
               key={label}
               label={label}
               className={i === 0 ? 'gallery__main' : ''}
-              src={i === 0 ? photo?.src : undefined}
-            />
+              src={gallery[i]?.src ?? (i === 0 ? photo?.src : undefined)}
+          />
           ))}
         {details && (
           <button className="gallery__all" onClick={() => setShowGallery(true)}>
@@ -360,8 +361,8 @@ export default function RestaurantDetail({
               </button>
             </div>
             <div className="gallery-modal__grid">
-              {details.photos.map((label) => (
-                <Photo key={label} label={label} />
+              {details.photos.map((label, i ) => (
+                <Photo key={label} label={label} src={gallery[i]?.src}/>
               ))}
             </div>
           </div>

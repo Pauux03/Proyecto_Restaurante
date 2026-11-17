@@ -18,7 +18,7 @@ import { MOCK_RESTAURANTS } from './data/restaurants'
 import { fetchRates, FALLBACK_RATES } from './services/currency'
 import { fetchRestaurants } from './services/places'
 import { formatNumber, longDate, todayISO } from './utils/format'
-import { fetchPhotos, photoFor } from './services/photos'
+import { fetchPhotos, photoFor, photosFor } from './services/photos'
 import ConfirmarReserva from './pages/ConfirmarReserva'
 import ReservationList from './components/ReservationList'
 import RestaurantDetail from './pages/RestaurantDetail'
@@ -374,6 +374,7 @@ const view = booking ? 'Reserva' : selected ? 'Detalle' : activeLink
     onBack={() => setSelected(null)}
     onReserve={handleBook}
     photo={photoFor(photos, selected.id)}
+    gallery={photosFor(photos, selected.id, 8)}
   />
 )}
 
