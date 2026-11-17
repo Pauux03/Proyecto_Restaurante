@@ -18,11 +18,16 @@ import { MOCK_RESTAURANTS } from './data/restaurants'
 import { fetchRates, FALLBACK_RATES } from './services/currency'
 import { fetchRestaurants } from './services/places'
 import { formatNumber, longDate, todayISO } from './utils/format'
+import { fetchPhotos, photoFor } from './services/photos'
+import ConfirmarReserva from './pages/ConfirmarReserva'
+import ReservationList from './components/ReservationList'
+import { loadReservations, createReservation, cancelReservation } from './services/reservations'
 
 const PAGE_SIZE = 6
 const LIMITS = { min: 45000, max: 157500 }
 const NAV_LINKS = ['Descubrir', 'Mis reservas', 'Guardados']
 const STORAGE_KEY = 'mesa:guardados'
+
 
 const DEFAULT_FILTERS = {
   minPrice: LIMITS.min,
@@ -68,13 +73,22 @@ export default function App() {
   const [activeLink, setActiveLink] = useState('Descubrir')
   const [showCurrency, setShowCurrency] = useState(false)
   const [showLocation, setShowLocation] = useState(false)
+  const [booking, setBooking] = useState(null) // { restaurant, time }
+  const [reservations, setReservations] = useState(loadReservations)
+  const [photos, setPhotos] = useState([])
 
-  // API 1: tasas de cambio al cargar la página
-  useEffect(() => {
-    fetchRates()
-      .then(setRates)
-      .catch(() => setRates(FALLBACK_RATES))
-  }, [])
+  
+useEffect(() => {
+  fetchRates()
+    .then(setRates)
+    .catch(() => setRates(FALLBACK_RATES))
+}, [])
+
+useEffect(() => {
+  fetchPhotos()
+    .then(setPhotos)
+    .catch((err) => console.error('Error fotos:', err))
+}, [])
 
   useEffect(() => {
     try {
@@ -84,7 +98,6 @@ export default function App() {
     }
   }, [saved])
 
-  // API 2: restaurantes reales al elegir ubicación
   async function handleLocation(place) {
     setShowLocation(false)
     setLoading(true)
@@ -153,6 +166,23 @@ export default function App() {
     setPage(1)
   }
 
+    function handleBook(restaurant, time) {
+  setBooking({ restaurant, time })
+  window.scrollTo({ top: 0 })
+}
+
+async function handleConfirm(data) {
+  const reservation = await createReservation(data)
+  setReservations((prev) => [reservation, ...prev])
+  return reservation
+}
+
+async function handleCancel(id) {
+  setReservations(await cancelReservation(id))
+}
+
+const view = booking ? 'Reserva' : activeLink
+
   function renderCard(r) {
     return (
       <RestaurantCard
@@ -162,6 +192,8 @@ export default function App() {
         rates={rates}
         isSaved={savedIds.has(r.id)}
         onToggleSave={toggleSaved}
+        onBook={handleBook}
+        photo={photoFor(photos, r.id)}
       />
     )
   }
@@ -182,11 +214,12 @@ export default function App() {
               <a
                 key={link}
                 href="#"
-                className={`nav__link ${link === activeLink ? 'is-active' : ''}`}
+                className={`nav__link ${link === (booking ? 'Mis reservas' : activeLink) ? 'is-active' : ''}`}
                 onClick={(e) => {
-                  e.preventDefault()
-                  setActiveLink(link)
-                }}
+                e.preventDefault()
+                setBooking(null)
+                setActiveLink(link)
+              }}
               >
                 {link}
                 {link === 'Guardados' && saved.length > 0 && (
@@ -211,7 +244,7 @@ export default function App() {
       </header>
 
       <main className="container">
-        {activeLink === 'Descubrir' && (
+        {view === 'Descubrir' && (
           <>
             <SearchBar
               search={search}
@@ -282,7 +315,7 @@ export default function App() {
           </>
         )}
 
-        {activeLink === 'Guardados' && (
+        {view === 'Guardados' && (
           <section className="saved">
             <h1 className="title">Tus restaurantes guardados</h1>
 
@@ -315,22 +348,32 @@ export default function App() {
           </section>
         )}
 
-        {activeLink === 'Mis reservas' && (
-          <section className="saved">
-            <h1 className="title">Mis reservas</h1>
-            <div className="saved-empty">
-              <UtensilsCrossed size={36} />
-              <h2>Todavía no tienes reservas</h2>
-              <p>Cuando reserves una mesa, la verás aquí.</p>
-              <button
-                className="btn-primary saved-empty__btn"
-                onClick={() => setActiveLink('Descubrir')}
-              >
-                Descubrir restaurantes
-              </button>
-            </div>
-          </section>
-        )}
+        {view === 'Mis reservas' && (
+  <ReservationList
+    reservations={reservations}
+    onCancel={handleCancel}
+    photos={photos}
+    onDiscover={() => setActiveLink('Descubrir')}
+  />
+)}
+
+{view === 'Reserva' && (
+  <ConfirmarReserva
+    restaurant={booking.restaurant}
+    time={booking.time}
+    search={search}
+    location={location}
+    currency={currency}
+    rates={rates}
+    onBack={() => setBooking(null)}
+    onConfirm={handleConfirm}
+    photo={photoFor(photos, booking.restaurant.id)}
+    onViewReservations={() => {
+      setBooking(null)
+      setActiveLink('Mis reservas')
+    }}
+  />
+)}
 
       </main>
 
@@ -348,8 +391,8 @@ export default function App() {
               Tasas de ExchangeRate-API
             </a>{' '}
             ·{' '}
-            <a href="https://www.pexels.com" target="_blank" rel="noreferrer">
-              Fotos de Pexels
+            <a href="https://pixabay.com" target="_blank" rel="noreferrer">
+            Fotos de Pixabay
             </a>
           </span>
         </div>

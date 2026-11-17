@@ -8,7 +8,7 @@ const OPTIONS = [
   { code: 'USD', name: 'Dólar estadounidense', note: 'Conversión de referencia' },
 ]
 
-const SAMPLE = 90000 // Oliva & Fuego
+const SAMPLE = 90000 
 
 export default function CurrencyModal({ currency, setCurrency, rates, onClose }) {
   const eur = convert(SAMPLE, 'EUR', rates)
