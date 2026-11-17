@@ -2,13 +2,13 @@ import { Heart, Star } from 'lucide-react'
 import { convert } from '../services/currency'
 import { formatMoney } from '../utils/format'
 
-export default function RestaurantCard({ r, currency, rates, isSaved, onToggleSave, onBook, photo }) {
+export default function RestaurantCard({ r, currency, rates, isSaved, onToggleSave, onBook, onOpen, photo }) {
   const price =
     currency === 'COP' ? r.priceCOP : Math.round(convert(r.priceCOP, currency, rates))
 
   return (
     <article className="card">
-      <div className="card__image">
+      <div className="card__image card__open" onClick={() => onOpen?.(r)}>
         {photo ? (
           <img
             className="card__img"
@@ -30,14 +30,19 @@ export default function RestaurantCard({ r, currency, rates, isSaved, onToggleSa
         <button
           className={`card__heart ${isSaved ? 'is-saved' : ''}`}
           aria-label="Guardar restaurante"
-          onClick={() => onToggleSave(r)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleSave(r)
+          }}
         >
           <Heart size={18} />
         </button>
       </div>
 
       <div className="card__row">
-        <h3 className="card__name">{r.name}</h3>
+        <h3 className="card__name card__open" onClick={() => onOpen?.(r)}>
+          {r.name}
+        </h3>
         <span className="card__rating">
           <Star size={14} />
           {r.rating.toFixed(2).replace('.', ',')} ({r.reviews})

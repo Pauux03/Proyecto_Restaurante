@@ -21,6 +21,7 @@ import { formatNumber, longDate, todayISO } from './utils/format'
 import { fetchPhotos, photoFor } from './services/photos'
 import ConfirmarReserva from './pages/ConfirmarReserva'
 import ReservationList from './components/ReservationList'
+import RestaurantDetail from './pages/RestaurantDetail'
 import { loadReservations, createReservation, cancelReservation } from './services/reservations'
 
 const PAGE_SIZE = 6
@@ -74,6 +75,7 @@ export default function App() {
   const [showCurrency, setShowCurrency] = useState(false)
   const [showLocation, setShowLocation] = useState(false)
   const [booking, setBooking] = useState(null) // { restaurant, time }
+  const [selected, setSelected] = useState(null) // restaurante abierto en el detalle
   const [reservations, setReservations] = useState(loadReservations)
   const [photos, setPhotos] = useState([])
 
@@ -166,8 +168,8 @@ useEffect(() => {
     setPage(1)
   }
 
-    function handleBook(restaurant, time) {
-  setBooking({ restaurant, time })
+    function handleBook(restaurant, time, bookingSearch) {
+  setBooking({ restaurant, time, search: bookingSearch })
   window.scrollTo({ top: 0 })
 }
 
@@ -181,7 +183,7 @@ async function handleCancel(id) {
   setReservations(await cancelReservation(id))
 }
 
-const view = booking ? 'Reserva' : activeLink
+const view = booking ? 'Reserva' : selected ? 'Detalle' : activeLink
 
   function renderCard(r) {
     return (
@@ -193,6 +195,7 @@ const view = booking ? 'Reserva' : activeLink
         isSaved={savedIds.has(r.id)}
         onToggleSave={toggleSaved}
         onBook={handleBook}
+        onOpen={(restaurant) => setSelected(restaurant)}
         photo={photoFor(photos, r.id)}
       />
     )
@@ -218,6 +221,7 @@ const view = booking ? 'Reserva' : activeLink
                 onClick={(e) => {
                 e.preventDefault()
                 setBooking(null)
+                setSelected(null)
                 setActiveLink(link)
               }}
               >
@@ -357,11 +361,27 @@ const view = booking ? 'Reserva' : activeLink
   />
 )}
 
+{view === 'Detalle' && (
+  <RestaurantDetail
+    key={selected.id}
+    restaurant={selected}
+    city={location.city}
+    currency={currency}
+    rates={rates}
+    search={search}
+    isSaved={savedIds.has(selected.id)}
+    onToggleSave={toggleSaved}
+    onBack={() => setSelected(null)}
+    onReserve={handleBook}
+    photo={photoFor(photos, selected.id)}
+  />
+)}
+
 {view === 'Reserva' && (
   <ConfirmarReserva
     restaurant={booking.restaurant}
     time={booking.time}
-    search={search}
+    search={booking.search ?? search}
     location={location}
     currency={currency}
     rates={rates}
@@ -370,6 +390,7 @@ const view = booking ? 'Reserva' : activeLink
     photo={photoFor(photos, booking.restaurant.id)}
     onViewReservations={() => {
       setBooking(null)
+      setSelected(null)
       setActiveLink('Mis reservas')
     }}
   />
