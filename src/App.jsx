@@ -14,6 +14,7 @@ import RestaurantCard from './components/RestaurantCard'
 import Pagination from './components/Pagination'
 import CurrencyModal from './components/CurrencyModal'
 import LocationModal from './components/LocationModal'
+import RestaurantDetail from './pages/RestaurantDetail'
 import { MOCK_RESTAURANTS } from './data/restaurants'
 import { fetchRates, FALLBACK_RATES } from './services/currency'
 import { fetchRestaurants } from './services/places'
@@ -68,6 +69,8 @@ export default function App() {
   const [activeLink, setActiveLink] = useState('Descubrir')
   const [showCurrency, setShowCurrency] = useState(false)
   const [showLocation, setShowLocation] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [reservations, setReservations] = useState([])
 
   // API 1: tasas de cambio al cargar la página
   useEffect(() => {
@@ -162,6 +165,7 @@ export default function App() {
         rates={rates}
         isSaved={savedIds.has(r.id)}
         onToggleSave={toggleSaved}
+        onOpen={(restaurant, slot) => setSelected({ restaurant, slot })}
       />
     )
   }
@@ -186,6 +190,7 @@ export default function App() {
                 onClick={(e) => {
                   e.preventDefault()
                   setActiveLink(link)
+                  setSelected(null)
                 }}
               >
                 {link}
@@ -211,7 +216,28 @@ export default function App() {
       </header>
 
       <main className="container">
-        {activeLink === 'Descubrir' && (
+        {selected && (
+          <RestaurantDetail
+            key={selected.restaurant.id}
+            restaurant={selected.restaurant}
+            initialSlot={selected.slot}
+            city={location.city}
+            currency={currency}
+            rates={rates}
+            search={search}
+            isSaved={savedIds.has(selected.restaurant.id)}
+            onToggleSave={toggleSaved}
+            onBack={() => setSelected(null)}
+            onReserved={(reservation) => {
+              setReservations((prev) => [...prev, reservation])
+              setSelected(null)
+              setActiveLink('Mis reservas')
+              window.scrollTo({ top: 0 })
+            }}
+          />
+        )}
+
+        {!selected && activeLink === 'Descubrir' && (
           <>
             <SearchBar
               search={search}
@@ -282,7 +308,7 @@ export default function App() {
           </>
         )}
 
-        {activeLink === 'Guardados' && (
+        {!selected && activeLink === 'Guardados' && (
           <section className="saved">
             <h1 className="title">Tus restaurantes guardados</h1>
 
@@ -315,20 +341,35 @@ export default function App() {
           </section>
         )}
 
-        {activeLink === 'Mis reservas' && (
+        {!selected && activeLink === 'Mis reservas' && (
           <section className="saved">
             <h1 className="title">Mis reservas</h1>
-            <div className="saved-empty">
-              <UtensilsCrossed size={36} />
-              <h2>Todavía no tienes reservas</h2>
-              <p>Cuando reserves una mesa, la verás aquí.</p>
-              <button
-                className="btn-primary saved-empty__btn"
-                onClick={() => setActiveLink('Descubrir')}
-              >
-                Descubrir restaurantes
-              </button>
-            </div>
+            {reservations.length === 0 ? (
+              <div className="saved-empty">
+                <UtensilsCrossed size={36} />
+                <h2>Todavía no tienes reservas</h2>
+                <p>Cuando reserves una mesa, la verás aquí.</p>
+                <button
+                  className="btn-primary saved-empty__btn"
+                  onClick={() => setActiveLink('Descubrir')}
+                >
+                  Descubrir restaurantes
+                </button>
+              </div>
+            ) : (
+              // Lista temporal: aquí va el diseño de la página de Mis reservas
+              <ul className="dishes">
+                {reservations.map((r) => (
+                  <li key={r.code}>
+                    <span>
+                      {r.restaurantName} · {longDate(r.date)} · {r.time} · {r.guests}{' '}
+                      {r.guests === 1 ? 'persona' : 'personas'}
+                    </span>
+                    <strong>{r.code}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
 
