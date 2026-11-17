@@ -14,16 +14,21 @@ import RestaurantCard from './components/RestaurantCard'
 import Pagination from './components/Pagination'
 import CurrencyModal from './components/CurrencyModal'
 import LocationModal from './components/LocationModal'
-import RestaurantDetail from './pages/RestaurantDetail'
 import { MOCK_RESTAURANTS } from './data/restaurants'
 import { fetchRates, FALLBACK_RATES } from './services/currency'
 import { fetchRestaurants } from './services/places'
 import { formatNumber, longDate, todayISO } from './utils/format'
+import { fetchPhotos, photoFor } from './services/photos'
+import ConfirmarReserva from './pages/ConfirmarReserva'
+import ReservationList from './components/ReservationList'
+import RestaurantDetail from './pages/RestaurantDetail'
+import { loadReservations, createReservation, cancelReservation } from './services/reservations'
 
 const PAGE_SIZE = 6
 const LIMITS = { min: 45000, max: 157500 }
 const NAV_LINKS = ['Descubrir', 'Mis reservas', 'Guardados']
 const STORAGE_KEY = 'mesa:guardados'
+
 
 const DEFAULT_FILTERS = {
   minPrice: LIMITS.min,
@@ -69,15 +74,23 @@ export default function App() {
   const [activeLink, setActiveLink] = useState('Descubrir')
   const [showCurrency, setShowCurrency] = useState(false)
   const [showLocation, setShowLocation] = useState(false)
-  const [selected, setSelected] = useState(null)
-  const [reservations, setReservations] = useState([])
+  const [booking, setBooking] = useState(null) // { restaurant, time }
+  const [selected, setSelected] = useState(null) // restaurante abierto en el detalle
+  const [reservations, setReservations] = useState(loadReservations)
+  const [photos, setPhotos] = useState([])
 
-  // API 1: tasas de cambio al cargar la página
-  useEffect(() => {
-    fetchRates()
-      .then(setRates)
-      .catch(() => setRates(FALLBACK_RATES))
-  }, [])
+  
+useEffect(() => {
+  fetchRates()
+    .then(setRates)
+    .catch(() => setRates(FALLBACK_RATES))
+}, [])
+
+useEffect(() => {
+  fetchPhotos()
+    .then(setPhotos)
+    .catch((err) => console.error('Error fotos:', err))
+}, [])
 
   useEffect(() => {
     try {
@@ -87,7 +100,6 @@ export default function App() {
     }
   }, [saved])
 
-  // API 2: restaurantes reales al elegir ubicación
   async function handleLocation(place) {
     setShowLocation(false)
     setLoading(true)
@@ -156,6 +168,23 @@ export default function App() {
     setPage(1)
   }
 
+    function handleBook(restaurant, time, bookingSearch) {
+  setBooking({ restaurant, time, search: bookingSearch })
+  window.scrollTo({ top: 0 })
+}
+
+async function handleConfirm(data) {
+  const reservation = await createReservation(data)
+  setReservations((prev) => [reservation, ...prev])
+  return reservation
+}
+
+async function handleCancel(id) {
+  setReservations(await cancelReservation(id))
+}
+
+const view = booking ? 'Reserva' : selected ? 'Detalle' : activeLink
+
   function renderCard(r) {
     return (
       <RestaurantCard
@@ -165,7 +194,9 @@ export default function App() {
         rates={rates}
         isSaved={savedIds.has(r.id)}
         onToggleSave={toggleSaved}
-        onOpen={(restaurant, slot) => setSelected({ restaurant, slot })}
+        onBook={handleBook}
+        onOpen={(restaurant) => setSelected(restaurant)}
+        photo={photoFor(photos, r.id)}
       />
     )
   }
@@ -186,12 +217,13 @@ export default function App() {
               <a
                 key={link}
                 href="#"
-                className={`nav__link ${link === activeLink ? 'is-active' : ''}`}
+                className={`nav__link ${link === (booking ? 'Mis reservas' : activeLink) ? 'is-active' : ''}`}
                 onClick={(e) => {
-                  e.preventDefault()
-                  setActiveLink(link)
-                  setSelected(null)
-                }}
+                e.preventDefault()
+                setBooking(null)
+                setSelected(null)
+                setActiveLink(link)
+              }}
               >
                 {link}
                 {link === 'Guardados' && saved.length > 0 && (
@@ -216,28 +248,7 @@ export default function App() {
       </header>
 
       <main className="container">
-        {selected && (
-          <RestaurantDetail
-            key={selected.restaurant.id}
-            restaurant={selected.restaurant}
-            initialSlot={selected.slot}
-            city={location.city}
-            currency={currency}
-            rates={rates}
-            search={search}
-            isSaved={savedIds.has(selected.restaurant.id)}
-            onToggleSave={toggleSaved}
-            onBack={() => setSelected(null)}
-            onReserved={(reservation) => {
-              setReservations((prev) => [...prev, reservation])
-              setSelected(null)
-              setActiveLink('Mis reservas')
-              window.scrollTo({ top: 0 })
-            }}
-          />
-        )}
-
-        {!selected && activeLink === 'Descubrir' && (
+        {view === 'Descubrir' && (
           <>
             <SearchBar
               search={search}
@@ -308,7 +319,7 @@ export default function App() {
           </>
         )}
 
-        {!selected && activeLink === 'Guardados' && (
+        {view === 'Guardados' && (
           <section className="saved">
             <h1 className="title">Tus restaurantes guardados</h1>
 
@@ -341,37 +352,49 @@ export default function App() {
           </section>
         )}
 
-        {!selected && activeLink === 'Mis reservas' && (
-          <section className="saved">
-            <h1 className="title">Mis reservas</h1>
-            {reservations.length === 0 ? (
-              <div className="saved-empty">
-                <UtensilsCrossed size={36} />
-                <h2>Todavía no tienes reservas</h2>
-                <p>Cuando reserves una mesa, la verás aquí.</p>
-                <button
-                  className="btn-primary saved-empty__btn"
-                  onClick={() => setActiveLink('Descubrir')}
-                >
-                  Descubrir restaurantes
-                </button>
-              </div>
-            ) : (
-              // Lista temporal: aquí va el diseño de la página de Mis reservas
-              <ul className="dishes">
-                {reservations.map((r) => (
-                  <li key={r.code}>
-                    <span>
-                      {r.restaurantName} · {longDate(r.date)} · {r.time} · {r.guests}{' '}
-                      {r.guests === 1 ? 'persona' : 'personas'}
-                    </span>
-                    <strong>{r.code}</strong>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
+        {view === 'Mis reservas' && (
+  <ReservationList
+    reservations={reservations}
+    onCancel={handleCancel}
+    photos={photos}
+    onDiscover={() => setActiveLink('Descubrir')}
+  />
+)}
+
+{view === 'Detalle' && (
+  <RestaurantDetail
+    key={selected.id}
+    restaurant={selected}
+    city={location.city}
+    currency={currency}
+    rates={rates}
+    search={search}
+    isSaved={savedIds.has(selected.id)}
+    onToggleSave={toggleSaved}
+    onBack={() => setSelected(null)}
+    onReserve={handleBook}
+    photo={photoFor(photos, selected.id)}
+  />
+)}
+
+{view === 'Reserva' && (
+  <ConfirmarReserva
+    restaurant={booking.restaurant}
+    time={booking.time}
+    search={booking.search ?? search}
+    location={location}
+    currency={currency}
+    rates={rates}
+    onBack={() => setBooking(null)}
+    onConfirm={handleConfirm}
+    photo={photoFor(photos, booking.restaurant.id)}
+    onViewReservations={() => {
+      setBooking(null)
+      setSelected(null)
+      setActiveLink('Mis reservas')
+    }}
+  />
+)}
 
       </main>
 
@@ -389,8 +412,8 @@ export default function App() {
               Tasas de ExchangeRate-API
             </a>{' '}
             ·{' '}
-            <a href="https://www.pexels.com" target="_blank" rel="noreferrer">
-              Fotos de Pexels
+            <a href="https://pixabay.com" target="_blank" rel="noreferrer">
+            Fotos de Pixabay
             </a>
           </span>
         </div>

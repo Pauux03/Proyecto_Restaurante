@@ -8,7 +8,6 @@ const OVERPASS_URLS = [
   'https://overpass.private.coffee/api/interpreter',
 ]
 
-// Buscar un lugar por texto ("Medellín", "Madrid"...)
 export async function searchPlace(query) {
   const url = `${NOMINATIM}/search?format=json&limit=5&accept-language=es&q=${encodeURIComponent(query)}`
   const res = await fetch(url)
@@ -23,7 +22,6 @@ export async function searchPlace(query) {
   }))
 }
 
-// Nombre de la ciudad a partir de coordenadas (al hacer clic en el mapa)
 export async function reverseGeocode(lat, lon) {
   const url = `${NOMINATIM}/reverse?format=json&zoom=10&accept-language=es&lat=${lat}&lon=${lon}`
   const res = await fetch(url)
@@ -60,7 +58,6 @@ function translateCuisine(raw) {
   return CUISINES[first] ?? 'Cocina variada'
 }
 
-// Quita duplicados por nombre
 function uniqueByName(list) {
   const seen = new Set()
   return list.filter((item) => {
@@ -71,9 +68,7 @@ function uniqueByName(list) {
   })
 }
 
-/* ---------- FUENTE 1: Nominatim (principal) ---------- */
 async function fetchFromNominatim(lat, lon, delta = 0.04) {
-  // viewbox = izquierda, arriba, derecha, abajo
   const viewbox = [lon - delta, lat + delta, lon + delta, lat - delta].join(',')
   const url =
     `${NOMINATIM}/search?format=jsonv2&q=restaurant&limit=40` +
@@ -88,7 +83,6 @@ async function fetchFromNominatim(lat, lon, delta = 0.04) {
     if (!res.ok) throw new Error(`Nominatim respondió ${res.status}`)
     const data = await res.json()
 
-    // Preferimos los que son restaurantes; si no hay, usamos todo lo devuelto
     const onlyRestaurants = data.filter((p) => p.type === 'restaurant')
     const items = onlyRestaurants.length ? onlyRestaurants : data
 
@@ -113,7 +107,6 @@ async function fetchFromNominatim(lat, lon, delta = 0.04) {
   }
 }
 
-/* ---------- FUENTE 2: Overpass (respaldo) ---------- */
 async function queryOverpass(query) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10000)
@@ -152,7 +145,6 @@ async function fetchFromOverpass(lat, lon, radius = 2500) {
   ).map(enrich)
 }
 
-/* ---------- Función que usa la app ---------- */
 export async function fetchRestaurants(lat, lon) {
   try {
     const list = await fetchFromNominatim(lat, lon)

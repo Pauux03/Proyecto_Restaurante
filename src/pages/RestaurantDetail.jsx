@@ -45,7 +45,14 @@ const FEATURE_ICONS = {
 
 const TABS = ['Información', 'Menú', 'Opiniones', 'Ubicación']
 
-function Photo({ label, className = '' }) {
+function Photo({ label, className = '', src }) {
+  if (src) {
+    return (
+      <div className={`photo ${className}`}>
+        <img className="photo__img" src={src} alt={label} />
+      </div>
+    )
+  }
   return (
     <div className={`photo ${className}`}>
       <svg className="card__lines" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -74,7 +81,8 @@ export default function RestaurantDetail({
   isSaved,
   onToggleSave,
   onBack,
-  onReserved,
+  onReserve,
+  photo,
 }) {
   const [details, setDetails] = useState(null)
   const [error, setError] = useState('')
@@ -163,7 +171,12 @@ export default function RestaurantDetail({
         {(details?.photos ?? ['Salón principal', 'Cocina de temporada', 'Terraza'])
           .slice(0, 3)
           .map((label, i) => (
-            <Photo key={label} label={label} className={i === 0 ? 'gallery__main' : ''} />
+            <Photo
+              key={label}
+              label={label}
+              className={i === 0 ? 'gallery__main' : ''}
+              src={i === 0 ? photo?.src : undefined}
+            />
           ))}
         {details && (
           <button className="gallery__all" onClick={() => setShowGallery(true)}>
@@ -333,7 +346,7 @@ export default function RestaurantDetail({
           search={search}
           initialSlot={initialSlot}
           cancelHours={details?.freeCancellationHours ?? 2}
-          onReserved={onReserved}
+          onReserve={onReserve}
         />
       </div>
 

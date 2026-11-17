@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Calendar, Users, ArrowRight, Info, Check } from 'lucide-react'
 import { convert } from '../services/currency'
-import { createReservation } from '../services/details'
 import { formatMoney, longDate, todayISO } from '../utils/format'
 
 function fullDate(iso) {
@@ -17,62 +16,20 @@ export default function ReservationBox({
   search,
   initialSlot,
   cancelHours,
-  onReserved,
+  onReserve,
 }) {
   const [date, setDate] = useState(search.date)
   const [guests, setGuests] = useState(search.guests)
   const [slot, setSlot] = useState(
     initialSlot ?? (restaurant.slots.includes(search.time) ? search.time : restaurant.slots[0]),
   )
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState('')
-  const [confirmed, setConfirmed] = useState(null)
 
   const price =
     currency === 'COP' ? restaurant.priceCOP : Math.round(convert(restaurant.priceCOP, currency, rates))
 
-  async function handleReserve() {
-    setSending(true)
-    setError('')
-    try {
-      const reservation = await createReservation({
-        restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        date,
-        time: slot,
-        guests,
-      })
-      setConfirmed(reservation)
-      // Después de un momento se pasa a la página de Mis reservas
-      setTimeout(() => onReserved(reservation), 1500)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  if (confirmed) {
-    return (
-      <aside className="booking">
-        <div className="booking__done">
-          <span className="booking__done-icon">
-            <Check size={26} />
-          </span>
-          <h2>¡Mesa reservada!</h2>
-          <p>
-            {restaurant.name} · {fullDate(confirmed.date)} a las {confirmed.time} ·{' '}
-            {confirmed.guests} {confirmed.guests === 1 ? 'persona' : 'personas'}
-          </p>
-          <p className="booking__code">
-            Código de reserva: <strong>{confirmed.code}</strong>
-          </p>
-          <button className="booking__again" onClick={() => onReserved(confirmed)}>
-            Ir a Mis reservas
-          </button>
-        </div>
-      </aside>
-    )
+  // Pasa a la pantalla de confirmar reserva con la fecha, hora y personas elegidas
+  function handleReserve() {
+    onReserve(restaurant, slot, { ...search, date, guests, time: slot })
   }
 
   return (
@@ -132,11 +89,9 @@ export default function ReservationBox({
         ))}
       </div>
 
-      {error && <p className="booking__error">{error}</p>}
-
-      <button className="booking__submit" onClick={handleReserve} disabled={sending}>
-        {sending ? 'Reservando...' : 'Reservar mesa'}
-        {!sending && <ArrowRight size={18} />}
+      <button className="booking__submit" onClick={handleReserve}>
+        Reservar mesa
+        <ArrowRight size={18} />
       </button>
 
       <div className="booking__notice">
